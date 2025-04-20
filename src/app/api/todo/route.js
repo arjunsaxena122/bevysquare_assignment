@@ -6,7 +6,7 @@ import cors from "cors"
 await connectDB();
 cors({
   methods:["GET","POST","PUT","DELETE","PATCH"],
-  origin:`${process.env.NEXT_FRONTEND_URL}`
+  origin:`${process.env.NEXT_PUBLIC_FRONTEND_URL}`
 })
 
 export async function GET(req) {

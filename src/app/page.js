@@ -1,103 +1,166 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import Navbar from "../components/Navbar/Navbar";
+import TodoHeader from "../components/TodoHeader";
+import TodoCard from "../components/TodoCard";
+import AddTodoModal from "../components/AddTodoModal";
+import TodoDetails from "../components/TodoDetails";
+import Pagination from "../components/Pagination";
+import { createTodo, getTodo, delTodo, putTodo } from "@/http";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [todos, setTodos] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredTodos, setFilteredTodos] = useState([]);
+  const [selectedTodo, setSelectedTodo] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [todosPerPage] = useState(5);
+  const [isLoading, setIsLoading] = useState(true);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const getData = async () => {
+    setIsLoading(true);
+    try {
+      const response = await getTodo();
+      setTodos(response.data);
+      setFilteredTodos(response.data);
+    } catch (error) {
+      console.log("ERROR: Something went wrong to fetch data..");
+    } finally {
+      setTimeout(()=>{
+        setIsLoading(false);
+      },1000)
+    }
+  };
+
+  useEffect(() => {
+    getData();
+  }, []);
+
+  useEffect(() => {
+    const filtered = todos.filter(
+      (todo) =>
+        todo.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        todo.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredTodos(filtered);
+    setCurrentPage(1);
+  }, [searchTerm, todos]);
+
+  const addTodo = async (newTodo) => {
+    await createTodo(newTodo);
+    getData();
+    setShowAddModal(false);
+  };
+
+  const updateTodo = async (updatedTodo) => {
+    const updatedTodos = todos.map((todo) =>
+      todo?._id === updatedTodo?._id ? updatedTodo : todo
+    );
+
+    await putTodo({
+      id: updatedTodo?._id,
+      title: updatedTodo?.title,
+      description: updatedTodo?.description,
+    });
+    setTodos(updatedTodos);
+    setSelectedTodo(updatedTodo);
+  };
+
+  const deleteTodo = async (id) => {
+    await delTodo(id);
+    const updatedTodos = todos.filter((todo) => todo._id !== id);
+    setTodos(updatedTodos);
+    setSelectedTodo(null);
+  };
+
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+  };
+
+  const handleSelectTodo = (todo) => {
+    setSelectedTodo(todo);
+  };
+
+  // Pagination logic
+  const indexOfLastTodo = currentPage * todosPerPage;
+  const indexOfFirstTodo = indexOfLastTodo - todosPerPage;
+  const currentTodos = filteredTodos.slice(indexOfFirstTodo, indexOfLastTodo);
+  const totalPages = Math.ceil(filteredTodos.length / todosPerPage);
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <Navbar />
+        <div className="mt-6 flex flex-col md:flex-row">
+          {/* Left side - Todo list */}
+          <div
+            className={`${
+              selectedTodo ? "w-full md:w-1/2 md:pr-4" : "w-full"
+            } mb-6 md:mb-0`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+            <TodoHeader
+              onAddClick={() => setShowAddModal(true)}
+              onSearch={handleSearch}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <div className="mt-6 space-y-4">
+              {isLoading ? (
+                <div className="text-white text-center my-40 text-3xl">
+                  Loading....
+                </div>
+              ) : filteredTodos.length === 0 ? (
+                <div className="bg-gray-800 rounded-lg p-10 text-center">
+                  <div className="text-amber-200 text-6xl mb-4">📝</div>
+                  <p className="text-gray-400 text-lg">
+                    No Todos Available. Click{" "}
+                    <span className="font-bold text-amber-200">Add</span> to
+                    create one!
+                  </p>
+                </div>
+              ) : (
+                currentTodos.map((todo) => (
+                  <TodoCard
+                    key={todo._id}
+                    todo={todo}
+                    isSelected={selectedTodo && selectedTodo._id === todo._id}
+                    onClick={() => handleSelectTodo(todo)}
+                  />
+                ))
+              )}
+            </div>
+
+            {filteredTodos.length > todosPerPage && (
+              <div className="mt-6">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Right side - Todo details */}
+          {selectedTodo && (
+            <div className="w-full md:w-1/2 md:pl-4 md:border-l border-gray-700">
+              <TodoDetails
+                todo={selectedTodo}
+                onUpdate={updateTodo}
+                onDelete={deleteTodo}
+                onClose={() => setSelectedTodo(null)}
+              />
+            </div>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+        {showAddModal && (
+          <AddTodoModal
+            onClose={() => setShowAddModal(false)}
+            onAdd={addTodo}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        )}
+      </div>
     </div>
   );
 }

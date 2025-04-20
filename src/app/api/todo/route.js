@@ -1,8 +1,13 @@
 import connectDB from "@/libs/db";
 import { Todo } from "@/model/todo.model";
 import { NextResponse } from "next/server";
+import cors from "cors"
 
 await connectDB();
+cors({
+  methods:["GET","POST","PUT","DELETE","PATCH"],
+  origin:`${process.env.NEXT_FRONTEND_URL}`
+})
 
 export async function GET(req) {
   const user = await Todo.find({});
